@@ -1,21 +1,38 @@
-#!/usr/bin/env node
-import 'source-map-support/register';
-import * as cdk from 'aws-cdk-lib';
-import { CdkPublicS3StorageStack } from '../lib/cdk-public-s3-storage-stack';
+import { App, Environment, Stack, StackProps } from "aws-cdk-lib";
+import { Certificate, CertificateValidation } from "aws-cdk-lib/aws-certificatemanager";
+import { HostedZone, IHostedZone } from "aws-cdk-lib/aws-route53";
+import { CdkPublicS3StorageStack } from "../lib/cdk-public-s3-storage-stack";
+const domainName = "s3.sapporo-engineer-base.dev"
 
-const app = new cdk.App();
-new CdkPublicS3StorageStack(app, 'CdkPublicS3StorageStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
+const app = new App()
 
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const env = {
+  account: process.env.CDK_DEFAULT_ACCOUNT!,
+  region: process.env.CDK_DEFAULT_REGION!,
+};
 
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
+const envJP: Environment = {
+  account: env.account,
+  region: "ap-northeast-1",
+}
 
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
-});
+const envUS: Environment = {
+  account: env.account,
+  region: "us-east-1",
+}
+
+const usStack = new Stack(app, `cdk-public-s3-storage-FrontCdkStack`, {
+  env: envUS,
+  crossRegionReferences: true,
+})
+
+const cert = new Certificate(usStack, `${domainName}-cert`, {
+  domainName: domainName,
+  validation: CertificateValidation.fromDns(),
+})
+
+new CdkPublicS3StorageStack(app, `cdk-public-s3-storage-BackCdkStack`, {
+  env: envJP,
+  cert: cert,
+  crossRegionReferences: true,
+})
